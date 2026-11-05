@@ -24,6 +24,13 @@ jobs:
           bash -n analyze_logs.sh
           echo "Синтаксис скриптов корректен"
 
+      - name: Install ShellCheck
+        run: |
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          fi
+          shellcheck --version | head -2
+
       - name: ShellCheck
         run: shellcheck check_api.sh analyze_logs.sh
 
