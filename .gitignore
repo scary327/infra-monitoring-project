@@ -1,0 +1,33 @@
+# Логи
+*.log
+logs/
+
+# Временные файлы
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+tmp/
+temp/
+
+# Артефакты сборки
+build/
+dist/
+out/
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+
+# Переменные окружения и секреты
+.env
+*.pem
+id_rsa*
+id_ed25519*
+
+# Системные файлы и IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
