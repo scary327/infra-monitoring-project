@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/monitoring]
+  workflow_dispatch:
+
+jobs:
+  scripts:
+    name: Bash scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x check_api.sh analyze_logs.sh
+
+      - name: Syntax check (bash -n)
+        run: |
+          bash -n check_api.sh
+          bash -n analyze_logs.sh
+          echo "Синтаксис скриптов корректен"
+
+      - name: ShellCheck
+        run: shellcheck check_api.sh analyze_logs.sh
+
+      - name: Test check_api.sh — valid URL (expect exit 0)
+        run: |
+          for attempt in 1 2 3; do
+            if ./check_api.sh https://httpbin.org/status/200; then
+              exit 0
+            fi
+            echo "Попытка $attempt не удалась, повтор через 5 секунд..."
+            sleep 5
+          done
+          exit 1
+
+      - name: Test check_api.sh — bad URL (expect exit 1)
+        run: |
+          if ./check_api.sh http://nonexistent.invalid; then
+            echo "Ожидался код возврата 1" && exit 1
+          fi
+          if ./check_api.sh not-a-url; then
+            echo "Ожидался код возврата 1" && exit 1
+          fi
+          echo "Ошибки обработаны корректно"
+
+      - name: Test analyze_logs.sh
+        run: |
+          ./analyze_logs.sh -n 300
+          test "$(wc -l < access.log)" -ge 300
+
+  docker:
+    name: Docker Compose stack
+    runs-on: ubuntu-latest
+    needs: scripts
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose config -q
+
+      - name: Start stack
+        run: docker compose up -d
+
+      - name: Smoke test via proxy
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fs http://localhost:80 | grep -q "Monitoring Service Active"; then
+              ./check_api.sh http://localhost:80
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down
